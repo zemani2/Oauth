@@ -54,7 +54,7 @@ def callback():
 
 @app.route('/')
 def index():
-    print("Hi Flask")
+    return "Hi Flask"
     # return redirect('/start_oauth')
 
 
