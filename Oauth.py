@@ -1,5 +1,6 @@
 from flask import Flask, redirect, request, session, jsonify
 from requests_oauthlib import OAuth1Session
+
 import os
 
 app = Flask(__name__)
@@ -11,8 +12,8 @@ CONSUMER_SECRET = "zx7Wlh4sxWCWnR0o5mUf67SAIZ4KidWSV4M"
 REQUEST_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/request_token"
 AUTHORIZE_URL = "https://connect.garmin.com/oauthConfirm"
 ACCESS_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/access_token"
-CALLBACK_URI = 'http://127.0.0.1:5000/callback'  # Update this to your actual callback URL
-
+CALLBACK_URI = 'https://yourdomain.com/callback'  # Update this to your actual callback URL
+HRV_API_URL = "https://apis.garmin.com/wellness-api/rest/hrv"
 
 @app.route('/start_oauth')
 def start_oauth():
@@ -22,7 +23,8 @@ def start_oauth():
         session['resource_owner_key'] = fetch_response.get('oauth_token')
         session['resource_owner_secret'] = fetch_response.get('oauth_token_secret')
         authorization_url = oauth.authorization_url(AUTHORIZE_URL)
-        return redirect(authorization_url)
+        # Update redirect URL to HTTPS
+        return redirect(authorization_url.replace("http://", "https://"))
     except ValueError as e:
         return jsonify({'error': 'Error fetching request token', 'message': str(e)}), 400
 
@@ -51,12 +53,41 @@ def callback():
     except ValueError as e:
         return jsonify({'error': 'Error fetching access token', 'message': str(e)}), 400
 
+# Endpoint to receive push notifications containing HRV data
+@app.route('/push_endpoint', methods=['POST'])
+def push_endpoint():
+    try:
+        # Parse the JSON data from the POST request
+        data = request.json
+        # Check if the request contains HRV data
+        if 'hrv_data' in data:
+            hrv_data = data['hrv_data']
+            # Process the received HRV data as needed
+            return jsonify({'message': 'HRV data received successfully', 'data': hrv_data}), 200
+        else:
+            return jsonify({'error': 'No HRV data found in the request'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_hrv')
+def get_hrv_data():
+    try:
+        oauth = OAuth1Session(CONSUMER_KEY,
+                              client_secret=CONSUMER_SECRET,
+                              resource_owner_key=session['oauth_token'],
+                              resource_owner_secret=session['oauth_token_secret'])
+        response = oauth.get(HRV_API_URL)
+        if response.status_code == 200:
+            hrv_data = response.json()
+            return jsonify(hrv_data)
+        else:
+            return jsonify({'error': 'Failed to fetch HRV data', 'status_code': response.status_code})
+    except Exception as e:
+        return jsonify({'error': 'An error occurred', 'message': str(e)}), 500
 
 @app.route('/')
 def index():
-    return "Hi Flask"
-    # return redirect('/start_oauth')
-
+    return redirect('/start_oauth')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=443)
