@@ -87,7 +87,7 @@ def get_hrv_data():
 
 @app.route('/')
 def index():
-    return redirect('/start_oauth')
+    return "Hey"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=443)
